@@ -125,7 +125,7 @@ type cidrAllocator struct {
 	recorder              record.EventRecorder
 	// Keep a set of nodes that are currently being processed to avoid races in CIDR allocation
 	lock                 sync.Mutex
-	nodesInProcessing    sets.String
+	nodesInProcessing    sets.Set[string]
 	mode                 Mode
 	tickPeriod           time.Duration
 	nodeCIDRMaskSizeIPv6 int
@@ -164,7 +164,7 @@ func NewCIDRRangeAllocator(ctx context.Context, client *coreV1Client.CoreV1Clien
 		cidrSets:              cidrSets,
 		nodeCIDRUpdateChannel: make(chan NodeReservedCIDRs, CidrUpdateQueueSize),
 		recorder:              recorder,
-		nodesInProcessing:     sets.NewString(),
+		nodesInProcessing:     sets.New[string](),
 		nodesSynced:           nodeInformer.HasSynced,
 		mode:                  Mode(mode),
 		tickPeriod:            *tickPeriod,

@@ -34,8 +34,6 @@ import (
 var Version string
 
 const (
-	// componentName is the component name
-	componentName = "aws-ipam-controller"
 	// leaderElectionId is the name of the lease resource
 	leaderElectionId = "aws-ipam-controller-leader-election"
 	// defaultNodeCIDRMaskSizeIPv4 is default mask size for IPv4 node cidr
@@ -71,7 +69,7 @@ func main() {
 	klog.InitFlags(nil)
 	pflag.Parse()
 	// Set klog level
-	flag.Set("v", *v)
+	flag.Set("v", *v) //nolint:errcheck
 
 	defer klog.Flush()
 

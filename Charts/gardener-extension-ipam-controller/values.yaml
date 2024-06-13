@@ -1,6 +1,6 @@
 images:
 #  aws-ipam-controller: image-repository:image-tag
-  aws-ipam-controller: gardener/aws-ipam-controller:v1
+  aws-ipam-controller: europe-docker.pkg.dev/gardener-project/releases/gardener/aws-ipam-controller:latest
 replicas: 1
 
 podAnnotations: {}

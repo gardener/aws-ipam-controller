@@ -70,7 +70,10 @@ func TestCIDRSetFullyAllocated(t *testing.T) {
 			t.Fatalf("expected error because of fully-allocated range for %v", tc.description)
 		}
 
-		a.Release(p)
+		err = a.Release(p)
+		if err != nil {
+			t.Fatalf("unexpected error: %v for CIDR release for %v", err, tc.description)
+		}
 
 		p, err = a.AllocateNext()
 		if err != nil {
@@ -252,7 +255,10 @@ func TestCIDRSet_RandomishAllocation(t *testing.T) {
 		}
 		// release them all
 		for i := 0; i < len(cidrs); i++ {
-			a.Release(cidrs[i])
+			err = a.Release(cidrs[i])
+			if err != nil {
+				t.Fatalf("unexpected error: %v for CIDR release for %v", err, tc.description)
+			}
 		}
 
 		// allocate the CIDRs again
@@ -314,14 +320,23 @@ func TestCIDRSet_AllocationOccupied(t *testing.T) {
 		}
 		// release them all
 		for i := 0; i < len(cidrs); i++ {
-			a.Release(cidrs[i])
+			err = a.Release(cidrs[i])
+			if err != nil {
+				t.Fatalf("unexpected error: %v for CIDR release for %v", err, tc.description)
+			}
 		}
 		// occupy the last 128 CIDRs
 		for i := numCIDRs / 2; i < numCIDRs; i++ {
-			a.Occupy(cidrs[i])
+			err = a.Occupy(cidrs[i])
+			if err != nil {
+				t.Fatalf("unexpected error: %v for Occupy for %v", err, tc.description)
+			}
 		}
 		// occupy the first of the last 128 again
-		a.Occupy(cidrs[numCIDRs/2])
+		err = a.Occupy(cidrs[numCIDRs/2])
+		if err != nil {
+			t.Fatalf("unexpected error: %v for Occupy for %v", err, tc.description)
+		}
 
 		// allocate the first 128 CIDRs again
 		var rcidrs []*net.IPNet
@@ -414,9 +429,15 @@ func TestDoubleOccupyRelease(t *testing.T) {
 		_, cidr, _ := net.ParseCIDR(op.cidrStr)
 		switch op.operation {
 		case "occupy":
-			a.Occupy(cidr)
+			err = a.Occupy(cidr)
+			if err != nil {
+				t.Fatalf("unexpected error: %v for Occupy", err)
+			}
 		case "release":
-			a.Release(cidr)
+			err = a.Release(cidr)
+			if err != nil {
+				t.Fatalf("unexpected error: %v for Release", err)
+			}
 		default:
 			t.Fatalf("test error: unknown operation %v", op.operation)
 		}
@@ -861,7 +882,10 @@ func TestCidrSetMetrics(t *testing.T) {
 		expectMetrics(t, cidr, em)
 	}
 	// Release all
-	a.Release(clusterCIDR)
+	err = a.Release(clusterCIDR)
+	if err != nil {
+		t.Fatalf("unexpected error: %v for Release", err)
+	}
 	em := testMetrics{
 		usage:      0,
 		allocs:     256,
@@ -871,7 +895,10 @@ func TestCidrSetMetrics(t *testing.T) {
 	expectMetrics(t, cidr, em)
 
 	// Allocate all
-	a.Occupy(clusterCIDR)
+	err = a.Occupy(clusterCIDR)
+	if err != nil {
+		t.Fatalf("unexpected error: %v for Occupy", err)
+	}
 	em = testMetrics{
 		usage:      1,
 		allocs:     512,
@@ -895,7 +922,10 @@ func TestCidrSetMetricsHistogram(t *testing.T) {
 	// Allocate half of the range
 	// Occupy does not update the nextCandidate
 	_, halfClusterCIDR, _ := net.ParseCIDR("10.0.0.0/17")
-	a.Occupy(halfClusterCIDR)
+	err = a.Occupy(halfClusterCIDR)
+	if err != nil {
+		t.Fatalf("unexpected error: %v for Occupy", err)
+	}
 	em := testMetrics{
 		usage:      0.5,
 		allocs:     128,
@@ -936,7 +966,10 @@ func TestCidrSetMetricsDual(t *testing.T) {
 	}
 	clearMetrics(map[string]string{"clusterCIDR": cidrIPv6})
 	// Allocate all
-	a.Occupy(clusterCIDRv4)
+	err = a.Occupy(clusterCIDRv4)
+	if err != nil {
+		t.Fatalf("unexpected error: %v for Occupy", err)
+	}
 	em := testMetrics{
 		usage:      1,
 		allocs:     256,
@@ -945,7 +978,10 @@ func TestCidrSetMetricsDual(t *testing.T) {
 	}
 	expectMetrics(t, cidrIPv4, em)
 
-	b.Occupy(clusterCIDRv6)
+	err = b.Occupy(clusterCIDRv6)
+	if err != nil {
+		t.Fatalf("unexpected error: %v for Occupy", err)
+	}
 	em = testMetrics{
 		usage:      1,
 		allocs:     65536,
@@ -955,7 +991,10 @@ func TestCidrSetMetricsDual(t *testing.T) {
 	expectMetrics(t, cidrIPv6, em)
 
 	// Release all
-	a.Release(clusterCIDRv4)
+	err = a.Release(clusterCIDRv4)
+	if err != nil {
+		t.Fatalf("unexpected error: %v for Release", err)
+	}
 	em = testMetrics{
 		usage:      0,
 		allocs:     256,
@@ -963,7 +1002,10 @@ func TestCidrSetMetricsDual(t *testing.T) {
 		allocTries: 0,
 	}
 	expectMetrics(t, cidrIPv4, em)
-	b.Release(clusterCIDRv6)
+	err = b.Release(clusterCIDRv6)
+	if err != nil {
+		t.Fatalf("unexpected error: %v for Release", err)
+	}
 	em = testMetrics{
 		usage:      0,
 		allocs:     65536,
@@ -1021,10 +1063,10 @@ func benchmarkAllocateAllIPv6(cidr string, subnetMaskSize int, b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		// Allocate the whole range + 1
 		for i := 0; i <= a.maxCIDRs; i++ {
-			a.AllocateNext()
+			_, _ = a.AllocateNext()
 		}
 		// Release all
-		a.Release(clusterCIDR)
+		_ = a.Release(clusterCIDR)
 	}
 }
 
