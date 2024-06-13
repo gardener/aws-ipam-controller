@@ -1,0 +1,33 @@
+images:
+#  aws-ipam-controller: image-repository:image-tag
+  aws-ipam-controller: gardener/aws-ipam-controller:v1
+replicas: 1
+
+podAnnotations: {}
+
+podLabels: {}
+
+providerName: provider-foo
+clusterName: foo
+
+metricsPort: 10258
+healthzPort: 10259
+
+podNetwork: 192.168.0.0/16
+region: eu-west-1
+
+
+vpa:
+  enabled: true
+  updatePolicy:
+    updateMode: "Auto"
+
+resources:
+  requests:
+    cpu: 30m
+    memory: 50Mi
+
+enabled: false
+
+global:
+  genericTokenKubeconfigSecretName: generic-token-kubeconfig
