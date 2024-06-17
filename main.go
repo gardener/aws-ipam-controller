@@ -82,13 +82,13 @@ func main() {
 
 	clusterCIDRs, _, err := processCIDRs(*clusterCIDRs)
 	if err != nil {
-		klog.Error(err, "could not parse clusterCIDRs")
+		klog.Error(err, " could not parse clusterCIDRs")
 		os.Exit(1)
 	}
 
 	targetConfig, err := clientcmd.BuildConfigFromFlags("", *targetKubeconfig)
 	if err != nil {
-		klog.Error(err, "could not use target kubeconfig", "target-kubeconfig", *targetKubeconfig)
+		klog.Error(err, " could not use target kubeconfig", "target-kubeconfig", *targetKubeconfig)
 		os.Exit(1)
 	}
 	options := manager.Options{
@@ -104,38 +104,39 @@ func main() {
 
 	mgr, err := manager.New(targetConfig, options)
 	if err != nil {
-		klog.Error(err, "could not create manager")
+		klog.Error(err, " could not create manager")
 		os.Exit(1)
 	}
 
 	nodeInformer, err := mgr.GetCache().GetInformer(ctx, &corev1.Node{})
 	if err != nil {
-		klog.Error(err, "unable to get setup components informer")
+		klog.Error(err, " unable to get setup components informer")
 		os.Exit(1)
 	}
 
 	coreV1Client, err := coreV1Client.NewForConfig(mgr.GetConfig())
 	if err != nil {
-		klog.Error(err, "could not build coreV1Client ", err)
+		klog.Error(err, " could not build coreV1Client ", err)
 		os.Exit(1)
 	}
 
 	credentials, err := updater.LoadCredentials(*controlKubeconfig, *namespace, *secretName)
 	if err != nil {
-		klog.Error(err, "could not load AWS credentials", "namespace", *namespace, "secretName", *secretName)
+		klog.Error(err, " could not load AWS credentials", "namespace", *namespace, "secretName", *secretName)
 		os.Exit(1)
 	}
 
 	ec2Client, err := updater.NewAWSEC2V2(ctx, credentials, *region)
 	if err != nil {
-		klog.Error(err, "could not create AWS EC2 client")
+		klog.Error(err, " could not create AWS EC2 client")
 		os.Exit(1)
 	}
 
 	// get list of node cidr mask sizes
 	nodeCIDRMaskSizes, err := setNodeCIDRMaskSizes(clusterCIDRs, *nodeCIDRMaskSizeIPv4, *nodeCIDRMaskSizeIPv6)
 	if err != nil {
-		klog.Error(err, "could not set node CIDR mask sizes")
+		klog.Error(err, " could not set node CIDR mask sizes")
+		os.Exit(1)
 	}
 
 	allocatorParams := ipam.CIDRAllocatorParams{
@@ -145,18 +146,18 @@ func main() {
 
 	cidrAllocator, err := ipam.NewCIDRRangeAllocator(ctx, coreV1Client, ec2Client, allocatorParams, nodeInformer, *mode, tickPeriod, *nodeCIDRMaskSizeIPv6)
 	if err != nil {
-		klog.Error(err, "could not create CIDR range allocator")
+		klog.Error(err, " could not create CIDR range allocator")
 		os.Exit(1)
 	}
 
 	err = mgr.AddReadyzCheck("node reconciler", cidrAllocator.ReadyChecker)
 	if err != nil {
-		klog.Error(err, "could not add ready checker")
+		klog.Error(err, " could not add ready checker")
 		os.Exit(1)
 	}
 	err = mgr.AddHealthzCheck("node reconciler", cidrAllocator.HealthzChecker)
 	if err != nil {
-		klog.Error(err, "could not add healthz checker")
+		klog.Error(err, " could not add healthz checker")
 		os.Exit(1)
 	}
 
@@ -190,7 +191,7 @@ func main() {
 		DeleteFunc: nodeutil.CreateDeleteNodeHandler(cidrAllocator.ReleaseCIDR),
 	})
 	if err != nil {
-		klog.Error(err, "unable to add components informer event handler")
+		klog.Error(err, " unable to add components informer event handler")
 		os.Exit(1)
 	}
 
@@ -200,7 +201,7 @@ func main() {
 
 	ctx = signals.SetupSignalHandler()
 	if err := mgr.Start(ctx); err != nil {
-		klog.Error(err, "could not start manager")
+		klog.Error(err, " could not start manager")
 		os.Exit(1)
 	}
 }

@@ -21,5 +21,7 @@ aws-ipam-controller
 --leader-election-namespace=kube-system
 --cluster-cidrs=10.0.0.0/16
 --mode=dual-stack
+--node-cidr-mask-size-ipv6=77
+--tick-period=500ms
 --v=4
 ```
