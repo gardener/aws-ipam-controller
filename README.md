@@ -1,6 +1,6 @@
 # aws-ipam-controller
 
-[![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
+[![REUSE status](https://api.reuse.software/badge/github.com/gardener/aws-ipam-controller)](https://api.reuse.software/info/github.com/gardener/aws-ipam-controller)
 
 This README provides an overview of the IPAM controller for Kubernetes, designed specifically for the AWS platform. The IPAM controller is responsible for assigning pod addresses to Kubernetes node objects.
 
