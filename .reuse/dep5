@@ -21,14 +21,14 @@ License: CC-BY-4.0
 # third-party
 
 # --- copied source code ---
- Files: 
-    pkg/ipam/cidrset/cidrset.go
-    pkg/ipam/cidrset/cidrset_test.go
-    pkg/ipam/cidrset/metrics.go
-    pkg/ipam/cidr_allocator.go
-    pkg/node/controller_utils.go
- Copyright: The Kubernetes Authors.
- License: Apache-2.0
+Files: 
+  pkg/ipam/cidrset/cidrset.go
+  pkg/ipam/cidrset/cidrset_test.go
+  pkg/ipam/cidrset/metrics.go
+  pkg/ipam/cidr_allocator.go
+  pkg/node/controller_utils.go
+Copyright: The Kubernetes Authors.
+License: Apache-2.0
 
 # --- vendor folder dependencies ---
 # Files:
