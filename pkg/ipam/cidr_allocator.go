@@ -394,21 +394,23 @@ func (c *cidrAllocator) updateCIDRsAllocation(ctx context.Context, data NodeRese
 		return nil
 	}
 
-	ipv6Address, err := c.fetchIPv6Address(ctx, node)
-	if err != nil {
-		klog.Errorf("Error when fetching IPv6 Address. Err:%v", err)
-		return err
-	}
-
-	ipv6Address = changeNetmask(ipv6Address, fmt.Sprintf("%v", c.nodeCIDRMaskSizeIPv6))
-
 	switch c.mode {
 	case IPv4:
 		// nothing to do for IPv4 case
 	case DualStack:
-		cidrsString = append(cidrsString, ipv6Address)
+		ipv6Address, err := c.fetchIPv6Address(ctx, node)
+		if err != nil {
+			klog.Errorf("Error when fetching IPv6 Address. Err:%v", err)
+			return err
+		}
+		cidrsString = append(cidrsString, changeNetmask(ipv6Address, fmt.Sprintf("%v", c.nodeCIDRMaskSizeIPv6)))
 	case IPv6:
-		cidrsString = []string{ipv6Address}
+		ipv6Address, err := c.fetchIPv6Address(ctx, node)
+		if err != nil {
+			klog.Errorf("Error when fetching IPv6 Address. Err:%v", err)
+			return err
+		}
+		cidrsString = []string{changeNetmask(ipv6Address, fmt.Sprintf("%v", c.nodeCIDRMaskSizeIPv6))}
 	}
 
 	// If we reached here, it means that the node has no CIDR currently assigned. So we set it.
