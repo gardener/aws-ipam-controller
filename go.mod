@@ -3,10 +3,10 @@ module github.com/gardener/aws-ipam-controller
 go 1.22
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.26.1
+	github.com/aws/aws-sdk-go-v2 v1.31.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.11
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.11
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.1
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.14
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.158.0
 	github.com/golang/mock v1.6.0
 	github.com/spf13/pflag v1.0.5
@@ -29,7 +29,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.20.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.28.6 // indirect
-	github.com/aws/smithy-go v1.20.2 // indirect
+	github.com/aws/smithy-go v1.21.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
