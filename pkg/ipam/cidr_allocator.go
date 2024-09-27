@@ -467,7 +467,7 @@ func (c *cidrAllocator) fetchIPv6Address(ctx context.Context, node *v1.Node) (st
 	}
 	instanceID := strings.Split(providerURL.Path, "/")[2]
 
-	klog.V(4).Infof(fmt.Sprintf("Instance ID of node is %q", instanceID))
+	klog.V(4).Infof("Instance ID of node is %q", instanceID)
 
 	eni, err := c.ec2Client.DescribeNetworkInterfaces(
 		ctx,
