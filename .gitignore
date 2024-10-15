@@ -18,3 +18,6 @@
 
 .cache_ggshield
 .gitguardian.yaml
+
+# gosec
+gosec-report.sarif

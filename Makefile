@@ -55,6 +55,14 @@ docker-images-linux-amd64:
 generate: $(MOCKGEN)
 	@MOCKGEN=$(shell realpath $(MOCKGEN)) go generate ./pkg/...
 
+.PHONY: sast
+sast: $(GOSEC)
+	@./hack/sast.sh
+
+.PHONY: sast-report
+sast-report: $(GOSEC)
+	@./hack/sast.sh --gosec-report true
+
 # Run tests
 .PHONY: test
 test:
@@ -66,4 +74,4 @@ update-dependencies:
 	@make tidy
 
 .PHONY: verify
-verify: check format test
+verify: check format test sast-report

@@ -69,7 +69,7 @@ func main() {
 	klog.InitFlags(nil)
 	pflag.Parse()
 	// Set klog level
-	flag.Set("v", *v) //nolint:errcheck
+	_ = flag.Set("v", *v) //nolint:errcheck
 
 	defer klog.Flush()
 
