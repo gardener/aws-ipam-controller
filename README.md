@@ -23,5 +23,5 @@ aws-ipam-controller
 --mode=dual-stack
 --node-cidr-mask-size-ipv6=77
 --tick-period=500ms
---v=4
+--log-level=info
 ```
