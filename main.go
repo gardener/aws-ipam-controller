@@ -6,7 +6,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gardener/aws-ipam-controller/pkg/ipam"
+	"github.com/gardener/aws-ipam-controller/pkg/logger"
 	"github.com/gardener/aws-ipam-controller/pkg/updater"
 
 	nodeutil "github.com/gardener/aws-ipam-controller/pkg/node"
@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 	netutils "k8s.io/utils/net"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -34,6 +35,8 @@ import (
 var Version string
 
 const (
+	// componentName is the component name
+	componentName = "aws-ipam-controller"
 	// leaderElectionId is the name of the lease resource
 	leaderElectionId = "aws-ipam-controller-leader-election"
 	// defaultNodeCIDRMaskSizeIPv4 is default mask size for IPv4 node cidr
@@ -58,18 +61,18 @@ var (
 	leaderElection          = pflag.Bool("leader-election", false, "enable leader election")
 	leaderElectionNamespace = pflag.String("leader-election-namespace", "kube-system", "namespace for the lease resource")
 	tickPeriod              = pflag.Duration("tick-period", 500*time.Millisecond, "tick period between CIDR updates on worker (default 500 ms)")
-	v                       = pflag.String("v", "2", "enable V-leveled logging at the specified level")
+	logLevel                = pflag.String("log-level", logger.InfoLevel, "LogLevel is the level/severity for the logs. Must be one of [info,debug,error].")
+	logFormat               = pflag.String("log-format", logger.FormatJSON, "output format for the logs. Must be one of [text,json].")
 )
 
 func main() {
 	ctx := context.Background()
-
+	logf.SetLogger(logger.MustNewZapLogger(*logLevel, *logFormat))
+	var log = logf.Log.WithName(componentName)
+	klog.SetLogger(log)
 	klog.Info("Version: ", Version)
-	// Initialize klog
 	klog.InitFlags(nil)
 	pflag.Parse()
-	// Set klog level
-	_ = flag.Set("v", *v) //nolint:errcheck
 
 	defer klog.Flush()
 
