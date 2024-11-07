@@ -3,10 +3,10 @@ module github.com/gardener/aws-ipam-controller
 go 1.23.0
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.32.3
+	github.com/aws/aws-sdk-go-v2 v1.32.4
 	github.com/aws/aws-sdk-go-v2/config v1.27.11
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.42
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.19
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.186.0
 	github.com/go-logr/logr v1.4.2
 	github.com/golang/mock v1.6.0
