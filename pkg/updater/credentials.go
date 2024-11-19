@@ -171,7 +171,7 @@ func NewAWSEC2V2(ctx context.Context, cred *Credentials, region string) (*ec2.Cl
 
 	config, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithEC2IMDSEndpointMode(imds.EndpointModeStateIPv6),
-		awsconfig.WithCredentialsProvider(aws.NewCredentialsCache(credentialsProvider)),
+		awsconfig.WithCredentialsProvider(credentialsProvider),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error loading default AWS config: %v", err)
