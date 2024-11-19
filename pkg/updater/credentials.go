@@ -8,12 +8,17 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,11 +35,37 @@ const (
 	SecretAccessKey = "secretAccessKey"
 	// InClusterConfig is a special name for the kubeconfig to use in-cluster client
 	InClusterConfig = "inClusterConfig"
+	// WorkloadIdentityTokenFile is a constant for the key in a cloud provider secret and backup secret that holds the path to a workload identity token.
+	WorkloadIdentityTokenFile = "workloadIdentityTokenFile"
+	// RoleARN is a constant for the key in a cloud provider secret and backup secret that holds ARN of a role that is to be assumed.
+	RoleARN = "roleARN"
 )
 
 type Credentials struct {
-	AccessKeyID     string
-	SecretAccessKey string
+	// AccessKey represents static credentials for authentication to AWS.
+	// This field is mutually exclusive with WorkloadIdentity.
+	AccessKey *AccessKey
+
+	// WorkloadIdentity contains workload identity configuration.
+	// This field is mutually exclusive with AccessKey.
+	WorkloadIdentity *WorkloadIdentity
+}
+
+// AccessKey represents static credentials for authentication to AWS.
+type AccessKey struct {
+	// ID is the key ID used for access to AWS.
+	ID string
+	// Secret is the secret used for access to AWS.
+	Secret string
+}
+
+// WorkloadIdentity contains workload identity configuration for authentication to AWS.
+type WorkloadIdentity struct {
+	// TokenRetriever a function that retrieves a token used for exchanging AWS credentials.
+	TokenRetriever stscreds.IdentityTokenRetriever
+
+	// RoleARN is the ARN of the role that will be assumed.
+	RoleARN string
 }
 
 func LoadCredentials(controlKubeconfig, namespace, secretName string) (*Credentials, error) {
@@ -67,6 +98,26 @@ func extractCredentials(secret *corev1.Secret) (*Credentials, error) {
 		return nil, fmt.Errorf("secret does not contain any data")
 	}
 
+	if workloadIdentityTokenFile, ok := secret.Data[WorkloadIdentityTokenFile]; ok {
+		if len(workloadIdentityTokenFile) == 0 {
+			return nil, fmt.Errorf("workloadIdentityTokenFile must not be empty")
+		}
+
+		roleARN, ok := secret.Data[RoleARN]
+		if !ok || len(roleARN) == 0 {
+			return nil, fmt.Errorf("roleARN is required")
+		}
+
+		return &Credentials{
+			WorkloadIdentity: &WorkloadIdentity{
+				TokenRetriever: &fileTokenRetriever{
+					fileName: string(workloadIdentityTokenFile),
+				},
+				RoleARN: string(roleARN),
+			},
+		}, nil
+	}
+
 	accessKeyID, err := getSecretDataValue(secret, AccessKeyID, nil, true)
 	if err != nil {
 		return nil, err
@@ -78,8 +129,10 @@ func extractCredentials(secret *corev1.Secret) (*Credentials, error) {
 	}
 
 	return &Credentials{
-		AccessKeyID:     string(accessKeyID),
-		SecretAccessKey: string(secretAccessKey),
+		AccessKey: &AccessKey{
+			ID:     string(accessKeyID),
+			Secret: string(secretAccessKey),
+		},
 	}, nil
 }
 
@@ -102,9 +155,23 @@ func getSecretDataValue(secret *corev1.Secret, key string, altKey *string, requi
 }
 
 func NewAWSEC2V2(ctx context.Context, cred *Credentials, region string) (*ec2.Client, error) {
+	var credentialsProvider aws.CredentialsProvider
+	switch {
+	case cred.AccessKey != nil:
+		credentialsProvider = credentials.NewStaticCredentialsProvider(cred.AccessKey.ID, cred.AccessKey.Secret, "")
+	case cred.WorkloadIdentity != nil:
+		credentialsProvider = stscreds.NewWebIdentityRoleProvider(
+			sts.NewFromConfig(aws.Config{Region: region}),
+			cred.WorkloadIdentity.RoleARN,
+			cred.WorkloadIdentity.TokenRetriever,
+		)
+	default:
+		return nil, errors.New("credentials should either contain access key or workload identity config")
+	}
+
 	config, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithEC2IMDSEndpointMode(imds.EndpointModeStateIPv6),
-		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cred.AccessKeyID, cred.SecretAccessKey, "")),
+		awsconfig.WithCredentialsProvider(aws.NewCredentialsCache(credentialsProvider)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error loading default AWS config: %v", err)
@@ -114,4 +181,14 @@ func NewAWSEC2V2(ctx context.Context, cred *Credentials, region string) (*ec2.Cl
 	ec2Config.Region = region
 	ec2Client := ec2.NewFromConfig(ec2Config)
 	return ec2Client, err
+}
+
+type fileTokenRetriever struct {
+	fileName string
+}
+
+var _ stscreds.IdentityTokenRetriever = (*fileTokenRetriever)(nil)
+
+func (f *fileTokenRetriever) GetIdentityToken() ([]byte, error) {
+	return os.ReadFile(f.fileName)
 }
