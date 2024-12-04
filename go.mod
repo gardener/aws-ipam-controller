@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.32.6
-	github.com/aws/aws-sdk-go-v2/config v1.27.11
+	github.com/aws/aws-sdk-go-v2/config v1.28.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.47
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.21
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0
@@ -26,7 +26,7 @@ require (
 require (
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.25 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.25 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.24.7 // indirect
