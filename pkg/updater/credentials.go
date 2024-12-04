@@ -55,7 +55,7 @@ type Credentials struct {
 type AccessKey struct {
 	// ID is the access key ID used for access to AWS.
 	ID string
-	// Secret is the access key secret used for access to AWS.
+	// Secret is the secret access key used for access to AWS.
 	Secret string
 }
 
