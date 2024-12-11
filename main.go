@@ -51,6 +51,7 @@ var (
 	nodeCIDRMaskSizeIPv4    = pflag.Int("node-cidr-mask-size-ipv4", defaultNodeCIDRMaskSizeIPv4, "node CIDR mask size for IPv4 CIDR range")
 	nodeCIDRMaskSizeIPv6    = pflag.Int("node-cidr-mask-size-ipv6", defaultNodeCIDRMaskSizeIPv6, "node CIDR mask size for IPv6 CIDR range")
 	mode                    = pflag.String("mode", "ipv6", "mode used for aws-ipam-controller. Must be one of [ipv4,dual-stack,ipv6]")
+	primaryIPFamily         = pflag.String("primary-ip-family", "ipv4", "primary IP Family used for dual stack [ipv4,ipv6]")
 	controlKubeconfig       = pflag.String("control-kubeconfig", updater.InClusterConfig, fmt.Sprintf("path of control plane kubeconfig or '%s' for in-cluster config", updater.InClusterConfig))
 	healthProbePort         = pflag.Int("health-probe-port", 8081, "port for health probes")
 	metricsPort             = pflag.Int("metrics-port", 8080, "port for metrics")
@@ -147,7 +148,7 @@ func main() {
 		NodeCIDRMaskSizes: nodeCIDRMaskSizes,
 	}
 
-	cidrAllocator, err := ipam.NewCIDRRangeAllocator(ctx, coreV1Client, ec2Client, allocatorParams, nodeInformer, *mode, tickPeriod, *nodeCIDRMaskSizeIPv6)
+	cidrAllocator, err := ipam.NewCIDRRangeAllocator(ctx, coreV1Client, ec2Client, allocatorParams, nodeInformer, *mode, tickPeriod, *nodeCIDRMaskSizeIPv6, *primaryIPFamily)
 	if err != nil {
 		klog.Error(err, " could not create CIDR range allocator")
 		os.Exit(1)
