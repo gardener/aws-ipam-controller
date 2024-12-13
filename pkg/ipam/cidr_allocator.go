@@ -127,6 +127,7 @@ type cidrAllocator struct {
 	lock                 sync.Mutex
 	nodesInProcessing    sets.Set[string]
 	mode                 Mode
+	primaryIPFamily      string
 	tickPeriod           time.Duration
 	nodeCIDRMaskSizeIPv6 int
 }
@@ -135,7 +136,7 @@ type cidrAllocator struct {
 // Caller must ensure subNetMaskSize is not less than cluster CIDR mask size.
 // Caller must always pass in a list of existing nodes so the new allocator.
 // can initialize its CIDR map. NodeList is only nil in testing.
-func NewCIDRRangeAllocator(ctx context.Context, client *coreV1Client.CoreV1Client, ec2Client *ec2.Client, allocatorParams CIDRAllocatorParams, nodeInformer runtimecache.Informer, mode string, tickPeriod *time.Duration, nodeCIDRMaskSizeIPv6 int) (CIDRAllocator, error) {
+func NewCIDRRangeAllocator(ctx context.Context, client *coreV1Client.CoreV1Client, ec2Client *ec2.Client, allocatorParams CIDRAllocatorParams, nodeInformer runtimecache.Informer, mode string, tickPeriod *time.Duration, nodeCIDRMaskSizeIPv6 int, primaryIPFamily string) (CIDRAllocator, error) {
 	if client == nil {
 		klog.Fatalf("kubeClient is nil when starting NodeController")
 	}
@@ -167,6 +168,7 @@ func NewCIDRRangeAllocator(ctx context.Context, client *coreV1Client.CoreV1Clien
 		nodesInProcessing:     sets.New[string](),
 		nodesSynced:           nodeInformer.HasSynced,
 		mode:                  Mode(mode),
+		primaryIPFamily:       primaryIPFamily,
 		tickPeriod:            *tickPeriod,
 		nodeCIDRMaskSizeIPv6:  nodeCIDRMaskSizeIPv6,
 	}
@@ -255,7 +257,8 @@ func (c *cidrAllocator) occupyCIDRs(node *v1.Node) error {
 	if len(node.Spec.PodCIDRs) == 0 {
 		return nil
 	}
-	for idx, cidr := range node.Spec.PodCIDRs {
+	idx := 0
+	for _, cidr := range node.Spec.PodCIDRs {
 		_, podCIDR, err := net.ParseCIDR(cidr)
 		if err != nil {
 			return fmt.Errorf("failed to parse node %s, CIDR %s", node.Name, node.Spec.PodCIDR)
@@ -265,7 +268,6 @@ func (c *cidrAllocator) occupyCIDRs(node *v1.Node) error {
 		if netutils.IsIPv6CIDR(podCIDR) {
 			continue
 		}
-
 		// If node has a pre allocate cidr that does not exist in our cidrs.
 		// This will happen if cluster went from dualstack(multi cidrs) to non-dualstack
 		// then we have now way of locking it
@@ -276,6 +278,7 @@ func (c *cidrAllocator) occupyCIDRs(node *v1.Node) error {
 		if err := c.cidrSets[idx].Occupy(podCIDR); err != nil {
 			return fmt.Errorf("failed to mark cidr[%v] at idx [%v] as occupied for node: %v: %v", podCIDR, idx, node.Name, err)
 		}
+		idx++
 	}
 	return nil
 }
@@ -415,7 +418,7 @@ func (c *cidrAllocator) updateCIDRsAllocation(ctx context.Context, data NodeRese
 
 	// If we reached here, it means that the node has no CIDR currently assigned. So we set it.
 	for i := 0; i < cidrUpdateRetries; i++ {
-		if err = nodeutil.PatchNodePodCIDRs(c.coreV1Client, node, cidrsString); err == nil {
+		if err = nodeutil.PatchNodePodCIDRs(c.coreV1Client, node, cidrsString, string(c.mode), c.primaryIPFamily); err == nil {
 			klog.Infof("Set node %v PodCIDR to %v", node.Name, cidrsString)
 			c.removeNodeFromProcessing(data.nodeName)
 			return nil
