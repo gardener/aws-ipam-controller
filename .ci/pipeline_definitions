@@ -30,7 +30,7 @@ aws-ipam-controller:
             dockerfile: 'Dockerfile'
     steps:
       verify:
-        image: golang:1.23.4
+        image: golang:1.24.2
   jobs:
     head-update:
       traits:
