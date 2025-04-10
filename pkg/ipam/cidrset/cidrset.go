@@ -75,7 +75,7 @@ var (
 	// ErrCIDRSetSubNetTooBig occurs when the subnet mask size is too
 	// big compared to the CIDR mask size.
 	ErrCIDRSetSubNetTooBig = errors.New(
-		"New CIDR set failed; the node CIDR size is too big")
+		"new CIDR set failed; the node CIDR size is too big")
 )
 
 // NewCIDRSet creates a new CidrSet.
@@ -91,7 +91,7 @@ func NewCIDRSet(clusterCIDR *net.IPNet, subNetMaskSize int) (*CidrSet, error) {
 	// register CidrSet metrics
 	registerCidrsetMetrics()
 
-	maxCIDRs = 1 << uint32(subNetMaskSize-clusterMaskSize)
+	maxCIDRs = 1 << uint32(subNetMaskSize-clusterMaskSize) // #nosec G115 -- uint32 is awlays larger than (subNetMaskSize-clusterMaskSize)
 	return &CidrSet{
 		clusterCIDR:     clusterCIDR,
 		nodeMask:        net.CIDRMask(subNetMaskSize, bits),
@@ -107,7 +107,7 @@ func (s *CidrSet) indexToCIDRBlock(index int) *net.IPNet {
 	switch /*v4 or v6*/ {
 	case s.clusterCIDR.IP.To4() != nil:
 		{
-			j := uint32(index) << uint32(32-s.nodeMaskSize)
+			j := uint32(index) << uint32(32-s.nodeMaskSize) // #nosec G115 -- index is smaller than max value of uint32 and (32-s.nodeMaskSize) is smaller than 32.
 			ipInt := (binary.BigEndian.Uint32(s.clusterCIDR.IP)) | j
 			ip = make([]byte, net.IPv4len)
 			binary.BigEndian.PutUint32(ip, ipInt)
@@ -125,19 +125,19 @@ func (s *CidrSet) indexToCIDRBlock(index int) *net.IPNet {
 
 			if s.nodeMaskSize <= halfV6NBits {
 				// We only care about left side IP
-				leftClusterIP |= uint64(index) << uint(halfV6NBits-s.nodeMaskSize)
+				leftClusterIP |= uint64(index) << uint(halfV6NBits-s.nodeMaskSize) // #nosec G115 -- index is smaller than max value of uint64 and (64-s.nodeMaskSize) is maller than max value of uint.
 			} else {
 				if s.clusterMaskSize < halfV6NBits {
 					// see how many bits are needed to reach the left side
-					btl := uint(s.nodeMaskSize - halfV6NBits)
-					indexMaxBit := uint(64 - bits.LeadingZeros64(uint64(index)))
+					btl := uint(s.nodeMaskSize - halfV6NBits)                    // #nosec G115 -- uint is always larger than (s.nodeMaskSize-64)
+					indexMaxBit := uint(64 - bits.LeadingZeros64(uint64(index))) // #nosec G115 -- index is smaller than max value of uint64
 					if indexMaxBit > btl {
-						leftClusterIP |= uint64(index) >> btl
+						leftClusterIP |= uint64(index) >> btl // #nosec G115 -- index is smaller than max value of uint64
 					}
 				}
 				// the right side will be calculated the same way either the
 				// subNetMaskSize affects both left and right sides
-				rightClusterIP |= uint64(index) << uint(v6NBits-s.nodeMaskSize)
+				rightClusterIP |= uint64(index) << uint(v6NBits-s.nodeMaskSize) // #nosec G115 -- index is always smaller than uint64 and (128-s.nodeMaskSize) is smaller than uint.
 			}
 			binary.BigEndian.PutUint64(ip[:halfIPv6Len], leftClusterIP)
 			binary.BigEndian.PutUint64(ip[halfIPv6Len:], rightClusterIP)
@@ -278,7 +278,8 @@ func (s *CidrSet) getIndexForCIDR(cidr *net.IPNet) (int, error) {
 
 func (s *CidrSet) getIndexForIP(ip net.IP) (int, error) {
 	if ip.To4() != nil {
-		cidrIndex := (binary.BigEndian.Uint32(s.clusterCIDR.IP) ^ binary.BigEndian.Uint32(ip.To4())) >> uint32(32-s.nodeMaskSize)
+		cidrIndex := (binary.BigEndian.Uint32(s.clusterCIDR.IP) ^ binary.BigEndian.Uint32(ip.To4())) >> uint32(32-s.nodeMaskSize) // #nosec G115 -- uint8 is smaller than uint32 and  (32-s.nodeMaskSize) is smaller than uint32.
+		// #nosec G115 -- maxCIDRS is smaller than 2^32.
 		if cidrIndex >= uint32(s.maxCIDRs) {
 			return 0, fmt.Errorf("CIDR: %v/%v is out of the range of CIDR allocator", ip, s.nodeMaskSize)
 		}
@@ -287,12 +288,13 @@ func (s *CidrSet) getIndexForIP(ip net.IP) (int, error) {
 	if ip.To16() != nil {
 		bigIP := big.NewInt(0).SetBytes(s.clusterCIDR.IP)
 		bigIP = bigIP.Xor(bigIP, big.NewInt(0).SetBytes(ip))
-		cidrIndexBig := bigIP.Rsh(bigIP, uint(net.IPv6len*8-s.nodeMaskSize))
+		cidrIndexBig := bigIP.Rsh(bigIP, uint(net.IPv6len*8-s.nodeMaskSize)) // #nosec G115 -- uint is always larger than (128-nodeMaskSize)
 		cidrIndex := cidrIndexBig.Uint64()
+		// #nosec G115 -- maxCIDRS is always smaller than maxCIDRS is smaller than 2^64.
 		if cidrIndex >= uint64(s.maxCIDRs) {
 			return 0, fmt.Errorf("CIDR: %v/%v is out of the range of CIDR allocator", ip, s.nodeMaskSize)
 		}
-		return int(cidrIndex), nil
+		return int(cidrIndex), nil // #nosec G115 -- cidrIndex is smaller than int.
 	}
 
 	return 0, fmt.Errorf("invalid IP: %v", ip)

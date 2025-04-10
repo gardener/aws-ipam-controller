@@ -39,7 +39,7 @@ type NodePatchMetadata struct {
 
 // PatchNodePodCIDRs patches the node podCIDR to the specified value.
 func PatchNodePodCIDRs(corev1client *corev1client.CoreV1Client, node *v1.Node, cidr []string, mode string, primaryIPFamily string) error {
-	klog.Infof("assigning CIDR %q to node %q", cidr, node.ObjectMeta.Name)
+	klog.Infof("assigning CIDR %q to node %q", cidr, node.Name)
 	if mode == "dual-stack" && len(cidr) == 2 {
 		if primaryIPFamily == "ipv6" {
 			// Sort the cidr array to have all IPv6 addresses first and then the IPv4 addresses
