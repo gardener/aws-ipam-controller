@@ -16,8 +16,8 @@ require (
 	golang.org/x/tools v0.33.0
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
-	k8s.io/client-go v0.33.0
-	k8s.io/component-base v0.33.0
+	k8s.io/client-go v0.33.1
+	k8s.io/component-base v0.33.1
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 	sigs.k8s.io/controller-runtime v0.20.4
