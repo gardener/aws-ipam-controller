@@ -1,0 +1,22 @@
+version = 1
+SPDX-PackageName = "Gardener aws-ipam-controller"
+SPDX-PackageSupplier = "The Gardener project <gardener@googlegroups.com>"
+SPDX-PackageDownloadLocation = "https://github.com/gardener/aws-ipam-controller"
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2024 SAP SE or an SAP affiliate company and Gardener contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "**.md"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2017-2024 SAP SE or an SAP affiliate company and Gardener contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = ["pkg/ipam/cidrset/cidrset.go", "pkg/ipam/cidrset/cidrset_test.go", "pkg/ipam/cidrset/metrics.go", "pkg/ipam/cidr_allocator.go", "pkg/node/controller_utils.go"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "The Kubernetes Authors."
+SPDX-License-Identifier = "Apache-2.0"
