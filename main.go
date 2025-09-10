@@ -95,6 +95,7 @@ func main() {
 		klog.Error(err, " could not use target kubeconfig", "target-kubeconfig", *targetKubeconfig)
 		os.Exit(1)
 	}
+
 	options := manager.Options{
 		LeaderElection:             *leaderElection,
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
@@ -201,7 +202,17 @@ func main() {
 
 	// Create the stopCh channel
 	stopCh := make(chan struct{})
-	go cidrAllocator.Run(ctx, stopCh)
+
+	if leaderElection != nil && *leaderElection {
+		log.Info("Leader election is enabled")
+		go func() {
+			<-mgr.Elected()
+			cidrAllocator.Run(ctx, stopCh)
+		}()
+	} else {
+		log.Info("Leader election is disabled, running in single instance mode")
+		go cidrAllocator.Run(ctx, stopCh)
+	}
 
 	ctx = signals.SetupSignalHandler()
 	if err := mgr.Start(ctx); err != nil {
