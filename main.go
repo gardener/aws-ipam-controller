@@ -200,18 +200,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create the stopCh channel
-	stopCh := make(chan struct{})
-
-	if leaderElection != nil && *leaderElection {
-		log.Info("Leader election is enabled")
-		go func() {
-			<-mgr.Elected()
-			cidrAllocator.Run(ctx, stopCh)
-		}()
-	} else {
-		log.Info("Leader election is disabled, running in single instance mode")
-		go cidrAllocator.Run(ctx, stopCh)
+	if err = mgr.Add(cidrAllocator); err != nil {
+		klog.Error(err, " could not add cidr allocator to manager")
+		os.Exit(1)
 	}
 
 	ctx = signals.SetupSignalHandler()
