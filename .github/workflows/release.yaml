@@ -13,12 +13,20 @@ jobs:
     uses: ./.github/workflows/build.yaml
     with:
       mode: release
-
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      
   release-to-github-and-bump:
     uses: gardener/cc-utils/.github/workflows/release.yaml@master
     needs:
       - build
     secrets: inherit
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
     with:
       release-commit-target: branch
       next-version: ${{ inputs.next-version }}
