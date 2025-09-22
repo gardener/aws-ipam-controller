@@ -17,7 +17,7 @@ ARG TARGETARCH
 RUN make release GOARCH=$TARGETARCH
 
 ############# aws-ipam-controller
-FROM gcr.io/distroless/static-debian11:nonroot AS aws-ipam-controller
+FROM gcr.io/distroless/static-debian12:nonroot AS aws-ipam-controller
 
 COPY --from=builder /build/aws-ipam-controller /aws-ipam-controller
 ENTRYPOINT ["/aws-ipam-controller"]
