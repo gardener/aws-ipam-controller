@@ -95,6 +95,7 @@ func main() {
 		klog.Error(err, " could not use target kubeconfig", "target-kubeconfig", *targetKubeconfig)
 		os.Exit(1)
 	}
+
 	options := manager.Options{
 		LeaderElection:             *leaderElection,
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
@@ -199,9 +200,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create the stopCh channel
-	stopCh := make(chan struct{})
-	go cidrAllocator.Run(ctx, stopCh)
+	if err = mgr.Add(cidrAllocator); err != nil {
+		klog.Error(err, " could not add cidr allocator to manager")
+		os.Exit(1)
+	}
 
 	ctx = signals.SetupSignalHandler()
 	if err := mgr.Start(ctx); err != nil {

@@ -50,6 +50,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	netutils "k8s.io/utils/net"
 	runtimecache "sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type Mode string
@@ -93,12 +94,13 @@ type CIDRAllocator interface {
 	AllocateOrOccupyCIDR(node *v1.Node) error
 	// ReleaseCIDR releases the CIDR of the removed node
 	ReleaseCIDR(node *v1.Node) error
-	// Run starts all the working logic of the allocator.
-	Run(ctx context.Context, stopCh <-chan struct{})
 
 	ReadyChecker(_ *http.Request) error
 
 	HealthzChecker(_ *http.Request) error
+
+	manager.Runnable
+	manager.LeaderElectionRunnable
 }
 
 // CIDRAllocatorParams is parameters that's required for creating new
@@ -197,24 +199,25 @@ func NewCIDRRangeAllocator(ctx context.Context, client *coreV1Client.CoreV1Clien
 	return ca, nil
 }
 
-func (c *cidrAllocator) Run(ctx context.Context, stopCh <-chan struct{}) {
+func (c *cidrAllocator) Start(ctx context.Context) error {
 	defer utilruntime.HandleCrash()
 
 	klog.Infof("Starting CIDR allocator")
 	defer klog.Infof("Shutting down CIDR allocator")
 
-	if !cache.WaitForNamedCacheSync("CIDR allocator", stopCh, c.nodesSynced) {
-		return
+	if !cache.WaitForNamedCacheSyncWithContext(ctx, c.nodesSynced) {
+		return fmt.Errorf("failed to sync node cache")
 	}
 
 	for i := 0; i < cidrUpdateWorkers; i++ {
-		go c.worker(ctx, stopCh)
+		go c.worker(ctx)
 	}
 
-	<-stopCh
+	<-ctx.Done()
+	return nil
 }
 
-func (c *cidrAllocator) worker(ctx context.Context, stopChan <-chan struct{}) {
+func (c *cidrAllocator) worker(ctx context.Context) {
 	for {
 		select {
 		case workItem, ok := <-c.nodeCIDRUpdateChannel:
@@ -227,7 +230,7 @@ func (c *cidrAllocator) worker(ctx context.Context, stopChan <-chan struct{}) {
 
 				c.nodeCIDRUpdateChannel <- workItem
 			}
-		case <-stopChan:
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -497,6 +500,10 @@ func (c *cidrAllocator) fetchIPv6Address(ctx context.Context, node *v1.Node) (st
 	}
 
 	return aws.ToString(eni.NetworkInterfaces[0].Ipv6Prefixes[0].Ipv6Prefix), nil
+}
+
+func (c *cidrAllocator) NeedLeaderElection() bool {
+	return true
 }
 
 func changeNetmask(ipAddress string, newNetmask string) string {
