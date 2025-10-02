@@ -1,0 +1,13 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+aliases:
+  aws-ipam-controller-reviewers:
+  - axel7born
+  - DockToFuture
+  - domdom82
+  - ScheererJ
+  aws-ipam-controller-approvers:
+  - axel7born
+  - DockToFuture
+  - domdom82
+  - ScheererJ

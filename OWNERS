@@ -1,0 +1,6 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+reviewers:
+- aws-ipam-controller-reviewers
+approvers:
+- aws-ipam-controller-approvers
