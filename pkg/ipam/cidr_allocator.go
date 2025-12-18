@@ -175,26 +175,11 @@ func NewCIDRRangeAllocator(ctx context.Context, client *coreV1Client.CoreV1Clien
 		nodeCIDRMaskSizeIPv6:  nodeCIDRMaskSizeIPv6,
 	}
 
-	nodeList, err := client.Nodes().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("error listing nodes: %w", err)
-	}
-	if nodeList != nil {
-		for _, node := range nodeList.Items {
-			if len(node.Spec.PodCIDRs) == 0 {
-				klog.V(4).Infof("Node %v has no CIDR, ignoring", node.Name)
-				continue
-			}
-			klog.V(4).Infof("Node %v has CIDR %s, occupying it in CIDR map", node.Name, node.Spec.PodCIDR)
-			if err := ca.occupyCIDRs(&node); err != nil {
-				// This will happen if:
-				// 1. We find garbage in the podCIDRs field. Retrying is useless.
-				// 2. CIDR out of range: This means a node CIDR has changed.
-				// This error will keep crashing aws-ipam-controller.
-				return nil, err
-			}
-		}
-	}
+	// Note: We intentionally do NOT occupy CIDRs here during initialization.
+	// The occupyCIDRs will be called later in Start() after the informer cache
+	// is fully synced to ensure we have a complete and consistent view of all nodes.
+	// This prevents race conditions where we might miss nodes that already have
+	// CIDRs allocated, which could lead to duplicate CIDR assignments.
 
 	return ca, nil
 }
@@ -205,8 +190,17 @@ func (c *cidrAllocator) Start(ctx context.Context) error {
 	klog.Infof("Starting CIDR allocator")
 	defer klog.Infof("Shutting down CIDR allocator")
 
-	if !cache.WaitForNamedCacheSyncWithContext(ctx, c.nodesSynced) {
+	klog.Infof("Waiting for caches to sync")
+	if !cache.WaitForNamedCacheSync("CIDR allocator", ctx.Done(), c.nodesSynced) {
 		return fmt.Errorf("failed to sync node cache")
+	}
+	klog.Infof("Caches are synced")
+
+	// After the cache is synced, reconcile the state by occupying CIDRs for all existing nodes.
+	// This ensures we have a consistent view of which CIDRs are in use, preventing duplicate
+	// allocations when a new leader is elected.
+	if err := c.reconcileState(ctx); err != nil {
+		return fmt.Errorf("failed to reconcile CIDR state: %w", err)
 	}
 
 	for i := 0; i < cidrUpdateWorkers; i++ {
@@ -214,6 +208,33 @@ func (c *cidrAllocator) Start(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
+	return nil
+}
+
+// reconcileState ensures the in-memory CIDR state is consistent with the actual cluster state.
+// This is called after the informer cache is synced to prevent duplicate CIDR allocations.
+func (c *cidrAllocator) reconcileState(ctx context.Context) error {
+	nodeList, err := c.coreV1Client.Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("error listing nodes during state reconciliation: %w", err)
+	}
+
+	klog.Infof("Reconciling CIDR state for %d nodes", len(nodeList.Items))
+	for _, node := range nodeList.Items {
+		if len(node.Spec.PodCIDRs) == 0 {
+			klog.V(4).Infof("Node %v has no CIDR, ignoring during reconciliation", node.Name)
+			continue
+		}
+		klog.V(4).Infof("Node %v has CIDR %s, occupying it in CIDR map", node.Name, node.Spec.PodCIDR)
+		if err := c.occupyCIDRsWithoutRemoval(&node); err != nil {
+			// This will happen if:
+			// 1. We find garbage in the podCIDRs field. Retrying is useless.
+			// 2. CIDR out of range: This means a node CIDR has changed.
+			// This error will keep crashing aws-ipam-controller.
+			return fmt.Errorf("failed to occupy CIDR for node %s during reconciliation: %w", node.Name, err)
+		}
+	}
+	klog.Infof("CIDR state reconciliation completed successfully")
 	return nil
 }
 
@@ -257,6 +278,12 @@ func (c *cidrAllocator) removeNodeFromProcessing(nodeName string) {
 // marks node.PodCIDRs[...] as used in allocator's tracked cidrSet
 func (c *cidrAllocator) occupyCIDRs(node *v1.Node) error {
 	defer c.removeNodeFromProcessing(node.Name)
+	return c.occupyCIDRsWithoutRemoval(node)
+}
+
+// occupyCIDRsWithoutRemoval marks node.PodCIDRs[...] as used in allocator's tracked cidrSet
+// without removing the node from processing. This is used during state reconciliation.
+func (c *cidrAllocator) occupyCIDRsWithoutRemoval(node *v1.Node) error {
 	if len(node.Spec.PodCIDRs) == 0 {
 		return nil
 	}
