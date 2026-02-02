@@ -91,7 +91,7 @@ func TestReconcileState(t *testing.T) {
 			ctx := context.Background()
 
 			// Create fake kubernetes client with existing nodes
-			fakeClient := fake.NewSimpleClientset()
+			fakeClient := fake.NewClientset()
 			for _, node := range tt.existingNodes {
 				_, err := fakeClient.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
 				if err != nil {
