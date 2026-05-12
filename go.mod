@@ -12,7 +12,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/golang/mock v1.6.0
 	github.com/spf13/pflag v1.0.10
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/tools v0.43.0
 	k8s.io/api v0.35.4
 	k8s.io/apimachinery v0.35.4
