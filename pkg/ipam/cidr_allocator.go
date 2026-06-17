@@ -132,6 +132,9 @@ type cidrAllocator struct {
 	primaryIPFamily      string
 	tickPeriod           time.Duration
 	nodeCIDRMaskSizeIPv6 int
+	// reconcileReady is closed after reconcileState completes. AllocateOrOccupyCIDR blocks on
+	// this before calling AllocateNext to prevent assigning CIDRs already held by existing nodes.
+	reconcileReady chan struct{}
 }
 
 // NewCIDRRangeAllocator returns a CIDRAllocator to allocate CIDRs for node (one from each of clusterCIDRs)
@@ -173,6 +176,7 @@ func NewCIDRRangeAllocator(ctx context.Context, client *coreV1Client.CoreV1Clien
 		primaryIPFamily:       primaryIPFamily,
 		tickPeriod:            *tickPeriod,
 		nodeCIDRMaskSizeIPv6:  nodeCIDRMaskSizeIPv6,
+		reconcileReady:        make(chan struct{}),
 	}
 
 	// Note: We intentionally do NOT occupy CIDRs here during initialization.
@@ -202,6 +206,7 @@ func (c *cidrAllocator) Start(ctx context.Context) error {
 	if err := c.reconcileState(ctx); err != nil {
 		return fmt.Errorf("failed to reconcile CIDR state: %w", err)
 	}
+	close(c.reconcileReady)
 
 	for i := 0; i < cidrUpdateWorkers; i++ {
 		go c.worker(ctx)
@@ -328,6 +333,13 @@ func (c *cidrAllocator) AllocateOrOccupyCIDR(node *v1.Node) error {
 	if len(node.Spec.PodCIDRs) > 0 {
 		return c.occupyCIDRs(node)
 	}
+
+	// Block allocation until reconcileState has finished populating the bitmap.
+	// Without this, a new node arriving concurrently with reconcileState could
+	// receive a CIDR already held by an existing node whose Occupy call hasn't
+	// been reached yet.
+	<-c.reconcileReady
+
 	// allocate and queue the assignment
 	allocated := NodeReservedCIDRs{
 		nodeName:       node.Name,
@@ -356,7 +368,8 @@ func (c *cidrAllocator) ReleaseCIDR(node *v1.Node) error {
 		return nil
 	}
 
-	for idx, cidr := range node.Spec.PodCIDRs {
+	cidrIdx := 0
+	for _, cidr := range node.Spec.PodCIDRs {
 		_, podCIDR, err := net.ParseCIDR(cidr)
 		if err != nil {
 			return fmt.Errorf("failed to parse CIDR %s on Node %v: %v", cidr, node.Name, err)
@@ -365,17 +378,12 @@ func (c *cidrAllocator) ReleaseCIDR(node *v1.Node) error {
 		if netutils.IsIPv6CIDR(podCIDR) {
 			continue
 		}
-		// If node has a pre allocate cidr that does not exist in our cidrs.
-		// This will happen if cluster went from dualstack(multi cidrs) to non-dualstack
-		// then we have now way of locking it
-		//if idx >= len(c.cidrSets) {
-		//	return fmt.Errorf("node:%s has an allocated cidr: %v at index:%v that does not exist in cluster cidrs configuration", node.Name, cidr, idx)
-		//}
 
 		klog.V(4).Infof("release CIDR %s for node:%v", cidr, node.Name)
-		if err = c.cidrSets[idx].Release(podCIDR); err != nil {
+		if err = c.cidrSets[cidrIdx].Release(podCIDR); err != nil {
 			return fmt.Errorf("error when releasing CIDR %v: %v", cidr, err)
 		}
+		cidrIdx++
 	}
 	return nil
 }
