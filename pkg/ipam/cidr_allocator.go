@@ -132,9 +132,14 @@ type cidrAllocator struct {
 	primaryIPFamily      string
 	tickPeriod           time.Duration
 	nodeCIDRMaskSizeIPv6 int
-	// reconcileReady is closed after reconcileState completes. AllocateOrOccupyCIDR blocks on
-	// this before calling AllocateNext to prevent assigning CIDRs already held by existing nodes.
+	// reconcileReady is closed after reconcileState completes successfully. AllocateOrOccupyCIDR
+	// blocks on this before calling AllocateNext to prevent assigning CIDRs already held by
+	// existing nodes. If reconcileState fails, the channel is never closed; waiters unblock via
+	// startCtx instead so they don't leak.
 	reconcileReady chan struct{}
+	// startCtx is the context passed to Start. AllocateOrOccupyCIDR uses it to cancel the
+	// reconcileReady wait when the controller is shutting down.
+	startCtx context.Context
 }
 
 // NewCIDRRangeAllocator returns a CIDRAllocator to allocate CIDRs for node (one from each of clusterCIDRs)
@@ -190,6 +195,7 @@ func NewCIDRRangeAllocator(ctx context.Context, client *coreV1Client.CoreV1Clien
 
 func (c *cidrAllocator) Start(ctx context.Context) error {
 	defer utilruntime.HandleCrash()
+	c.startCtx = ctx
 
 	klog.Infof("Starting CIDR allocator")
 	defer klog.Infof("Shutting down CIDR allocator")
@@ -337,8 +343,19 @@ func (c *cidrAllocator) AllocateOrOccupyCIDR(node *v1.Node) error {
 	// Block allocation until reconcileState has finished populating the bitmap.
 	// Without this, a new node arriving concurrently with reconcileState could
 	// receive a CIDR already held by an existing node whose Occupy call hasn't
-	// been reached yet.
-	<-c.reconcileReady
+	// been reached yet. If the controller context is cancelled before reconcile
+	// completes (e.g. reconcileState returned an error and Start is unwinding),
+	// abort instead of blocking forever and leaking the goroutine.
+	if c.startCtx != nil {
+		select {
+		case <-c.reconcileReady:
+		case <-c.startCtx.Done():
+			c.removeNodeFromProcessing(node.Name)
+			return c.startCtx.Err()
+		}
+	} else {
+		<-c.reconcileReady
+	}
 
 	// allocate and queue the assignment
 	allocated := NodeReservedCIDRs{
