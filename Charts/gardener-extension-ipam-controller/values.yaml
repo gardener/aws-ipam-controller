@@ -20,7 +20,7 @@ region: eu-west-1
 vpa:
   enabled: true
   updatePolicy:
-    updateMode: "Recreate"
+    updateMode: "InPlaceOrRecreate"
 
 resources:
   requests:
