@@ -16,7 +16,7 @@
 // This file was copied from the kubernetes/cloud-provider-gcp project
 // https://github.com/kubernetes/cloud-provider-gcp/blob/master/pkg/controller/nodeipam/ipam/cidrset/metrics.go
 //
-// Modifications Copyright 2024 SAP SE or an SAP affiliate company and Gardener contributors
+// Modifications Copyright Copyright Contributors to the Gardener project
 
 package cidrset
 
