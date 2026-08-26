@@ -16,7 +16,7 @@
 // This file was copied from the kubernetes/cloud-provider-gcp project
 // https://github.com/kubernetes/cloud-provider-gcp/blob/d972ae6f6649ca52dc3244e4e00c494717497686/pkg/util/controller_utils.go#L45
 //
-// Modifications Copyright Copyright Contributors to the Gardener project
+// Modifications Copyright Contributors to the Gardener project
 
 package node
 

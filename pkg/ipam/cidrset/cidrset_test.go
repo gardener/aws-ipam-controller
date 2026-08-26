@@ -16,7 +16,7 @@
 // This file was copied from the kubernetes/cloud-provider-gcp project
 // https://github.com/kubernetes/cloud-provider-gcp/blob/master/pkg/controller/nodeipam/ipam/cidrset/cidr_set_test.go
 //
-// Modifications Copyright Copyright Contributors to the Gardener project
+// Modifications Copyright Contributors to the Gardener project
 
 package cidrset
 
