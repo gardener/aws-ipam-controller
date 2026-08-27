@@ -4,10 +4,10 @@ go 1.26.0
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.45.0
-	github.com/aws/aws-sdk-go-v2/config v1.32.40
+	github.com/aws/aws-sdk-go-v2/config v1.33.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.0
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.19.0
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.324.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.325.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.47.0
 	github.com/go-logr/logr v1.4.4
 	github.com/golang/mock v1.6.0
