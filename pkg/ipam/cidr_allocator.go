@@ -238,14 +238,11 @@ func (c *cidrAllocator) reconcileState(ctx context.Context) error {
 		}
 		klog.V(4).Infof("Node %v has CIDR %s, occupying it in CIDR map", node.Name, node.Spec.PodCIDR)
 		if err := c.occupyCIDRsWithoutRemoval(&node); err != nil {
-			// TODO: discuss tradeoff with colleagues.
-			// Current behaviour (warn+skip): controller stays up; the bad node never gets a
-			// CIDR assigned and pods on it stay unschedulable — the failure is silent unless
-			// someone is watching logs or node conditions.
-			// Alternative (return err, crash-loop): immediately visible via CrashLoopBackOff in
-			// the shoot control-plane namespace; blast radius is limited to that one shoot, but
-			// operators have to investigate and manually fix or delete the offending node.
-			klog.Warningf("Skipping node %s during reconciliation (bad pod CIDR): %v", node.Name, err)
+			// This will happen if:
+			// 1. We find garbage in the podCIDRs field. Retrying is useless.
+			// 2. CIDR out of range: This means a node CIDR has changed.
+			// This error will keep crashing aws-ipam-controller.
+			return fmt.Errorf("failed to occupy CIDR for node %s during reconciliation: %w", node.Name, err)
 		}
 	}
 	klog.Infof("CIDR state reconciliation completed successfully")
@@ -295,13 +292,24 @@ func (c *cidrAllocator) occupyCIDRs(node *v1.Node) error {
 	return c.occupyCIDRsWithoutRemoval(node)
 }
 
+// clusterCIDRIdxFor returns the index of the first entry in c.clusterCIDRs that
+// contains ip, or -1 if none does. Using the containing CIDR rather than a shared
+// positional counter avoids family-ordering assumptions in dual-stack clusters.
+func (c *cidrAllocator) clusterCIDRIdxFor(ip net.IP) int {
+	for i, clusterCIDR := range c.clusterCIDRs {
+		if clusterCIDR.Contains(ip) {
+			return i
+		}
+	}
+	return -1
+}
+
 // occupyCIDRsWithoutRemoval marks node.PodCIDRs[...] as used in allocator's tracked cidrSet
 // without removing the node from processing. This is used during state reconciliation.
 func (c *cidrAllocator) occupyCIDRsWithoutRemoval(node *v1.Node) error {
 	if len(node.Spec.PodCIDRs) == 0 {
 		return nil
 	}
-	idx := 0
 	for _, cidr := range node.Spec.PodCIDRs {
 		_, podCIDR, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -312,7 +320,8 @@ func (c *cidrAllocator) occupyCIDRsWithoutRemoval(node *v1.Node) error {
 		if netutils.IsIPv6CIDR(podCIDR) {
 			continue
 		}
-		if idx >= len(c.clusterCIDRs) || !c.clusterCIDRs[idx].Contains(podCIDR.IP) {
+		idx := c.clusterCIDRIdxFor(podCIDR.IP)
+		if idx < 0 {
 			return fmt.Errorf("node %s pod CIDR %s is outside managed cluster CIDR", node.Name, podCIDR)
 		}
 		// If node has a pre allocate cidr that does not exist in our cidrs.
@@ -325,7 +334,6 @@ func (c *cidrAllocator) occupyCIDRsWithoutRemoval(node *v1.Node) error {
 		if err := c.cidrSets[idx].Occupy(podCIDR); err != nil {
 			return fmt.Errorf("failed to mark cidr[%v] at idx [%v] as occupied for node: %v: %v", podCIDR, idx, node.Name, err)
 		}
-		idx++
 	}
 	return nil
 }
@@ -391,7 +399,6 @@ func (c *cidrAllocator) ReleaseCIDR(node *v1.Node) error {
 		return nil
 	}
 
-	cidrIdx := 0
 	for _, cidr := range node.Spec.PodCIDRs {
 		_, podCIDR, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -401,7 +408,8 @@ func (c *cidrAllocator) ReleaseCIDR(node *v1.Node) error {
 		if netutils.IsIPv6CIDR(podCIDR) {
 			continue
 		}
-		if cidrIdx >= len(c.clusterCIDRs) || !c.clusterCIDRs[cidrIdx].Contains(podCIDR.IP) {
+		cidrIdx := c.clusterCIDRIdxFor(podCIDR.IP)
+		if cidrIdx < 0 {
 			return fmt.Errorf("node %s pod CIDR %s is outside managed cluster CIDR", node.Name, podCIDR)
 		}
 
@@ -409,7 +417,6 @@ func (c *cidrAllocator) ReleaseCIDR(node *v1.Node) error {
 		if err = c.cidrSets[cidrIdx].Release(podCIDR); err != nil {
 			return fmt.Errorf("error when releasing CIDR %v: %v", cidr, err)
 		}
-		cidrIdx++
 	}
 	return nil
 }
