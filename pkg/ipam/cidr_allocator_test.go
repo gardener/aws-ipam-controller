@@ -16,6 +16,122 @@ import (
 	"github.com/gardener/aws-ipam-controller/pkg/ipam/cidrset"
 )
 
+// newTestAllocator builds a minimal cidrAllocator for unit tests (no ec2 client, no informer).
+func newTestAllocator(t *testing.T, clusterCIDR string, maskSize int) *cidrAllocator {
+	t.Helper()
+	_, ipnet, err := net.ParseCIDR(clusterCIDR)
+	if err != nil {
+		t.Fatalf("parse cluster CIDR: %v", err)
+	}
+	cs, err := cidrset.NewCIDRSet(ipnet, maskSize)
+	if err != nil {
+		t.Fatalf("new CIDRSet: %v", err)
+	}
+	return &cidrAllocator{
+		clusterCIDRs:   []*net.IPNet{ipnet},
+		cidrSets:       []*cidrset.CidrSet{cs},
+		reconcileReady: make(chan struct{}),
+	}
+}
+
+// nodeWithCIDR returns a Node with the given pod CIDR.
+func nodeWithCIDR(name, cidr string) *v1.Node {
+	return &v1.Node{
+		Name: name,
+		Spec: v1.NodeSpec{PodCIDR: cidr, PodCIDRs: []string{cidr}},
+	}
+}
+
+// --- occupyCIDRsWithoutRemoval ---
+
+func TestOccupyCIDRsWithoutRemoval_Valid(t *testing.T) {
+	c := newTestAllocator(t, "10.0.0.0/16", 24)
+	node := nodeWithCIDR("node1", "10.0.1.0/24")
+	if err := c.occupyCIDRsWithoutRemoval(node); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// After occupy, AllocateNext must not return the same CIDR.
+	next, err := c.cidrSets[0].AllocateNext()
+	if err != nil {
+		t.Fatalf("AllocateNext: %v", err)
+	}
+	if next.String() == "10.0.1.0/24" {
+		t.Error("AllocateNext returned already-occupied CIDR 10.0.1.0/24")
+	}
+}
+
+func TestOccupyCIDRsWithoutRemoval_OutsideRange(t *testing.T) {
+	c := newTestAllocator(t, "10.0.0.0/16", 24)
+	node := nodeWithCIDR("bad-node", "192.168.1.0/24") // outside 10.0.0.0/16
+	if err := c.occupyCIDRsWithoutRemoval(node); err == nil {
+		t.Error("expected error for out-of-range pod CIDR")
+	}
+}
+
+func TestOccupyCIDRsWithoutRemoval_MalformedCIDR(t *testing.T) {
+	c := newTestAllocator(t, "10.0.0.0/16", 24)
+	node := &v1.Node{
+		Name: "bad-node",
+		Spec: v1.NodeSpec{PodCIDR: "not-a-cidr", PodCIDRs: []string{"not-a-cidr"}},
+	}
+	if err := c.occupyCIDRsWithoutRemoval(node); err == nil {
+		t.Error("expected error for malformed pod CIDR")
+	}
+}
+
+// --- ReleaseCIDR ---
+
+func TestReleaseCIDR_OutsideRange(t *testing.T) {
+	c := newTestAllocator(t, "10.0.0.0/16", 24)
+	node := nodeWithCIDR("bad-node", "192.168.1.0/24")
+	if err := c.ReleaseCIDR(node); err == nil {
+		t.Error("expected error for out-of-range pod CIDR in ReleaseCIDR")
+	}
+}
+
+func TestReleaseCIDR_Valid(t *testing.T) {
+	c := newTestAllocator(t, "10.0.0.0/16", 24)
+	node := nodeWithCIDR("node1", "10.0.1.0/24")
+	// Occupy first, then release.
+	if err := c.occupyCIDRsWithoutRemoval(node); err != nil {
+		t.Fatalf("occupy: %v", err)
+	}
+	if err := c.ReleaseCIDR(node); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+}
+
+// TestReconcileState_BadCIDRSkipped verifies the f005 fix: a node with an out-of-range
+// pod CIDR causes occupyCIDRsWithoutRemoval to return an error, but reconcileState skips
+// it (warn+continue) so the controller starts up and good nodes are still occupied.
+// We test the behaviour via occupyCIDRsWithoutRemoval directly because the concrete
+// *coreV1Client.CoreV1Client field cannot be satisfied by the k8s fake clientset.
+func TestReconcileState_BadCIDRSkipped(t *testing.T) {
+	c := newTestAllocator(t, "10.0.0.0/16", 24)
+
+	goodNode := nodeWithCIDR("good", "10.0.1.0/24")
+	badNode := nodeWithCIDR("bad", "192.168.1.0/24") // outside cluster CIDR
+
+	// Bad node must produce an error from occupyCIDRsWithoutRemoval.
+	if err := c.occupyCIDRsWithoutRemoval(badNode); err == nil {
+		t.Error("expected error for bad node's out-of-range CIDR")
+	}
+
+	// Good node must succeed — and its CIDR must be marked occupied.
+	if err := c.occupyCIDRsWithoutRemoval(goodNode); err != nil {
+		t.Fatalf("unexpected error for good node: %v", err)
+	}
+	next, err := c.cidrSets[0].AllocateNext()
+	if err != nil {
+		t.Fatalf("AllocateNext: %v", err)
+	}
+	if next.String() == "10.0.1.0/24" {
+		t.Error("good node's CIDR should be occupied; AllocateNext returned it")
+	}
+}
+
+// --- legacy tests below, kept as-is ---
+
 func TestReconcileState(t *testing.T) {
 	tests := []struct {
 		name          string

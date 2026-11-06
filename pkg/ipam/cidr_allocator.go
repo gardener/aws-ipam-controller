@@ -238,11 +238,14 @@ func (c *cidrAllocator) reconcileState(ctx context.Context) error {
 		}
 		klog.V(4).Infof("Node %v has CIDR %s, occupying it in CIDR map", node.Name, node.Spec.PodCIDR)
 		if err := c.occupyCIDRsWithoutRemoval(&node); err != nil {
-			// This will happen if:
-			// 1. We find garbage in the podCIDRs field. Retrying is useless.
-			// 2. CIDR out of range: This means a node CIDR has changed.
-			// This error will keep crashing aws-ipam-controller.
-			return fmt.Errorf("failed to occupy CIDR for node %s during reconciliation: %w", node.Name, err)
+			// TODO: discuss tradeoff with colleagues.
+			// Current behaviour (warn+skip): controller stays up; the bad node never gets a
+			// CIDR assigned and pods on it stay unschedulable — the failure is silent unless
+			// someone is watching logs or node conditions.
+			// Alternative (return err, crash-loop): immediately visible via CrashLoopBackOff in
+			// the shoot control-plane namespace; blast radius is limited to that one shoot, but
+			// operators have to investigate and manually fix or delete the offending node.
+			klog.Warningf("Skipping node %s during reconciliation (bad pod CIDR): %v", node.Name, err)
 		}
 	}
 	klog.Infof("CIDR state reconciliation completed successfully")
@@ -308,6 +311,9 @@ func (c *cidrAllocator) occupyCIDRsWithoutRemoval(node *v1.Node) error {
 		// only track IPv4 CIDRs
 		if netutils.IsIPv6CIDR(podCIDR) {
 			continue
+		}
+		if idx >= len(c.clusterCIDRs) || !c.clusterCIDRs[idx].Contains(podCIDR.IP) {
+			return fmt.Errorf("node %s pod CIDR %s is outside managed cluster CIDR", node.Name, podCIDR)
 		}
 		// If node has a pre allocate cidr that does not exist in our cidrs.
 		// This will happen if cluster went from dualstack(multi cidrs) to non-dualstack
@@ -394,6 +400,9 @@ func (c *cidrAllocator) ReleaseCIDR(node *v1.Node) error {
 		// only track IPv4 CIDRs
 		if netutils.IsIPv6CIDR(podCIDR) {
 			continue
+		}
+		if cidrIdx >= len(c.clusterCIDRs) || !c.clusterCIDRs[cidrIdx].Contains(podCIDR.IP) {
+			return fmt.Errorf("node %s pod CIDR %s is outside managed cluster CIDR", node.Name, podCIDR)
 		}
 
 		klog.V(4).Infof("release CIDR %s for node:%v", cidr, node.Name)
@@ -523,7 +532,11 @@ func (c *cidrAllocator) fetchIPv6Address(ctx context.Context, node *v1.Node) (st
 	if err != nil {
 		return "", fmt.Errorf("could not parse provider URL for Node %q", node.Name)
 	}
-	instanceID := strings.Split(providerURL.Path, "/")[2]
+	parts := strings.Split(providerURL.Path, "/")
+	if len(parts) < 3 || parts[2] == "" {
+		return "", fmt.Errorf("malformed provider ID path for node %q: %q", node.Name, node.Spec.ProviderID)
+	}
+	instanceID := parts[2]
 
 	klog.V(4).Infof("Instance ID of node is %q", instanceID)
 
