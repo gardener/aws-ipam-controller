@@ -269,7 +269,7 @@ func setNodeCIDRMaskSizes(clusterCIDRs []*net.IPNet, ipv4Mask, ipv6Mask int) ([]
 
 // validateKubeconfig rejects kubeconfigs whose auth info uses credential forms that could
 // exfiltrate the controller's own token.
-// Only inline token, client-cert-data, client-key-data, username, and password are allowed.
+// Only inline token, tokenFile, client-cert-data, client-key-data are allowed.
 func validateKubeconfig(path string) error {
 	config, err := clientcmd.LoadFromFile(path)
 	if err != nil {
@@ -277,8 +277,6 @@ func validateKubeconfig(path string) error {
 	}
 	for user, authInfo := range config.AuthInfos {
 		switch {
-		case authInfo.TokenFile != "":
-			return fmt.Errorf("user %q: tokenFile is not supported", user)
 		case authInfo.Exec != nil:
 			return fmt.Errorf("user %q: exec credential plugin is not supported", user)
 		case authInfo.ClientCertificate != "":
@@ -289,6 +287,8 @@ func validateKubeconfig(path string) error {
 			return fmt.Errorf("user %q: auth-provider is not supported", user)
 		case authInfo.Impersonate != "":
 			return fmt.Errorf("user %q: impersonation is not supported", user)
+		case authInfo.Username != "" && authInfo.Password != "":
+			return fmt.Errorf("user %q: username/password is not supported", user)
 		}
 	}
 	return nil
