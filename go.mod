@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.8
 	github.com/go-logr/logr v1.4.4
 	github.com/golang/mock v1.6.0
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/tools v0.52.0
 	k8s.io/api v0.37.2
