@@ -34,23 +34,22 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/gardener/aws-ipam-controller/pkg/ipam/cidrset"
-
-	nodeutil "github.com/gardener/aws-ipam-controller/pkg/node"
-	coreV1Client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/klog/v2"
-
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/scheme"
+	coreV1Client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog/v2"
 	netutils "k8s.io/utils/net"
 	runtimecache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/gardener/aws-ipam-controller/pkg/ipam/cidrset"
+	nodeutil "github.com/gardener/aws-ipam-controller/pkg/node"
 )
 
 type Mode string

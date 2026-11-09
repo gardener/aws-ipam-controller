@@ -12,11 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gardener/aws-ipam-controller/pkg/ipam"
-	"github.com/gardener/aws-ipam-controller/pkg/logger"
-	"github.com/gardener/aws-ipam-controller/pkg/updater"
-
-	nodeutil "github.com/gardener/aws-ipam-controller/pkg/node"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	coreV1Client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -29,6 +24,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"github.com/gardener/aws-ipam-controller/pkg/ipam"
+	"github.com/gardener/aws-ipam-controller/pkg/logger"
+	nodeutil "github.com/gardener/aws-ipam-controller/pkg/node"
+	"github.com/gardener/aws-ipam-controller/pkg/updater"
 )
 
 // Version is injected by build
