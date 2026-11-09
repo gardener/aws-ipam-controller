@@ -2,22 +2,30 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+ENSURE_GARDENER_MOD         := $(shell go get github.com/gardener/gardener@$$(go list -m -f "{{.Version}}" github.com/gardener/gardener))
+ENSURE_GARDENER_TOOLS_MOD   := $(shell go get github.com/gardener/gardener/hack/tools@$$(go list -m -f "{{.Version}}" github.com/gardener/gardener/hack/tools))
+GARDENER_HACK_DIR           := $(shell go list -m -f "{{.Dir}}" github.com/gardener/gardener)/hack
 REGISTRY              := europe-docker.pkg.dev/gardener-project/public
 EXECUTABLE            := aws-ipam-controller
 PROJECT               := github.com/gardener/aws-ipam-controller
 IMAGE_REPOSITORY      := $(REGISTRY)/gardener/aws-ipam-controller
 REPO_ROOT             := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+HACK_DIR              := $(REPO_ROOT)/hack
 VERSION               := $(shell cat VERSION)
 IMAGE_TAG             := $(VERSION)
 EFFECTIVE_VERSION     := $(VERSION)-$(shell git rev-parse HEAD)
 GOARCH                := amd64
 
-TOOLS_DIR := hack/tools
-include $(TOOLS_DIR)/tools.mk
+TOOLS_DIR := $(HACK_DIR)/tools
+include $(GARDENER_HACK_DIR)/tools.mk
 
 .PHONY: tidy
 tidy:
 	go mod tidy
+
+.PHONY: clean
+clean:
+	@bash $(GARDENER_HACK_DIR)/clean.sh . ./pkg/...
 
 # build local executable
 .PHONY: build-local
@@ -34,14 +42,13 @@ release:
 		main.go
 
 .PHONY: check
-check: $(GOIMPORTS) $(GOLANGCI_LINT)
-	go vet ./...
-	GOIMPORTS=$(GOIMPORTS) GOLANGCI_LINT=$(GOLANGCI_LINT) hack/check.sh ./...
+check: $(GOIMPORTS) $(GOLANGCI_LINT) $(HELM)
+	@bash $(GARDENER_HACK_DIR)/check.sh . ./pkg/...
 
 # Run go fmt against code
 .PHONY: format
-format: $(GOIMPORTS)
-	$(GOIMPORTS) -l -w  main.go ./pkg
+format: $(GOIMPORTS) $(GOIMPORTSREVISER)
+	@bash $(GARDENER_HACK_DIR)/format.sh ./main.go ./pkg
 
 .PHONY: docker-images
 docker-images:
@@ -51,9 +58,15 @@ docker-images:
 docker-images-linux-amd64:
 	@docker buildx build --platform linux/amd64 -t $(IMAGE_REPOSITORY):$(IMAGE_TAG) -f Dockerfile .
 
+.PHONY: check-generate
+check-generate:
+	@bash $(GARDENER_HACK_DIR)/check-generate.sh $(REPO_ROOT)
+
 .PHONY: generate
-generate: $(MOCKGEN)
-	@MOCKGEN=$(shell realpath $(MOCKGEN)) go generate ./pkg/...
+generate: $(CONTROLLER_GEN) $(CRD_REF_DOCS) $(HELM) $(MOCKGEN) $(KUSTOMIZE) $(YQ) $(EXTENSION_GEN) $(KUBECTL)
+	@REPO_ROOT=$(REPO_ROOT) CONTROLLER_GEN=$(CONTROLLER_GEN) GARDENER_HACK_DIR=$(GARDENER_HACK_DIR) bash $(GARDENER_HACK_DIR)/generate-sequential.sh . ./pkg/...
+	$(MAKE) format
+	@GARDENER_HACK_DIR=$(GARDENER_HACK_DIR) RENOVATE_CONFIG=$(REPO_ROOT)/.github/renovate.json5 bash $(GARDENER_HACK_DIR)/generate-renovate-ignore-deps.sh
 
 .PHONY: sast
 sast: $(GOSEC)
