@@ -292,13 +292,24 @@ func (c *cidrAllocator) occupyCIDRs(node *v1.Node) error {
 	return c.occupyCIDRsWithoutRemoval(node)
 }
 
+// clusterCIDRIdxFor returns the index of the first entry in c.clusterCIDRs that
+// contains ip, or -1 if none does. Using the containing CIDR rather than a shared
+// positional counter avoids family-ordering assumptions in dual-stack clusters.
+func (c *cidrAllocator) clusterCIDRIdxFor(ip net.IP) int {
+	for i, clusterCIDR := range c.clusterCIDRs {
+		if clusterCIDR.Contains(ip) {
+			return i
+		}
+	}
+	return -1
+}
+
 // occupyCIDRsWithoutRemoval marks node.PodCIDRs[...] as used in allocator's tracked cidrSet
 // without removing the node from processing. This is used during state reconciliation.
 func (c *cidrAllocator) occupyCIDRsWithoutRemoval(node *v1.Node) error {
 	if len(node.Spec.PodCIDRs) == 0 {
 		return nil
 	}
-	idx := 0
 	for _, cidr := range node.Spec.PodCIDRs {
 		_, podCIDR, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -308,6 +319,10 @@ func (c *cidrAllocator) occupyCIDRsWithoutRemoval(node *v1.Node) error {
 		// only track IPv4 CIDRs
 		if netutils.IsIPv6CIDR(podCIDR) {
 			continue
+		}
+		idx := c.clusterCIDRIdxFor(podCIDR.IP)
+		if idx < 0 {
+			return fmt.Errorf("node %s pod CIDR %s is outside managed cluster CIDR", node.Name, podCIDR)
 		}
 		// If node has a pre allocate cidr that does not exist in our cidrs.
 		// This will happen if cluster went from dualstack(multi cidrs) to non-dualstack
@@ -319,7 +334,6 @@ func (c *cidrAllocator) occupyCIDRsWithoutRemoval(node *v1.Node) error {
 		if err := c.cidrSets[idx].Occupy(podCIDR); err != nil {
 			return fmt.Errorf("failed to mark cidr[%v] at idx [%v] as occupied for node: %v: %v", podCIDR, idx, node.Name, err)
 		}
-		idx++
 	}
 	return nil
 }
@@ -385,7 +399,6 @@ func (c *cidrAllocator) ReleaseCIDR(node *v1.Node) error {
 		return nil
 	}
 
-	cidrIdx := 0
 	for _, cidr := range node.Spec.PodCIDRs {
 		_, podCIDR, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -395,12 +408,15 @@ func (c *cidrAllocator) ReleaseCIDR(node *v1.Node) error {
 		if netutils.IsIPv6CIDR(podCIDR) {
 			continue
 		}
+		cidrIdx := c.clusterCIDRIdxFor(podCIDR.IP)
+		if cidrIdx < 0 {
+			return fmt.Errorf("node %s pod CIDR %s is outside managed cluster CIDR", node.Name, podCIDR)
+		}
 
 		klog.V(4).Infof("release CIDR %s for node:%v", cidr, node.Name)
 		if err = c.cidrSets[cidrIdx].Release(podCIDR); err != nil {
 			return fmt.Errorf("error when releasing CIDR %v: %v", cidr, err)
 		}
-		cidrIdx++
 	}
 	return nil
 }
@@ -523,7 +539,11 @@ func (c *cidrAllocator) fetchIPv6Address(ctx context.Context, node *v1.Node) (st
 	if err != nil {
 		return "", fmt.Errorf("could not parse provider URL for Node %q", node.Name)
 	}
-	instanceID := strings.Split(providerURL.Path, "/")[2]
+	parts := strings.Split(providerURL.Path, "/")
+	if len(parts) < 3 || parts[2] == "" {
+		return "", fmt.Errorf("malformed provider ID path for node %q: %q", node.Name, node.Spec.ProviderID)
+	}
+	instanceID := parts[2]
 
 	klog.V(4).Infof("Instance ID of node is %q", instanceID)
 

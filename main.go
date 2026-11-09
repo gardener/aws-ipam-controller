@@ -90,12 +90,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := validateKubeconfig(*targetKubeconfig); err != nil {
+		klog.Error(err, " target kubeconfig contains unsupported credential fields")
+		os.Exit(1)
+	}
+
 	targetConfig, err := clientcmd.BuildConfigFromFlags("", *targetKubeconfig)
 	if err != nil {
 		klog.Error(err, " could not use target kubeconfig", "target-kubeconfig", *targetKubeconfig)
 		os.Exit(1)
 	}
-
 	options := manager.Options{
 		LeaderElection:             *leaderElection,
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
@@ -261,4 +265,31 @@ func setNodeCIDRMaskSizes(clusterCIDRs []*net.IPNet, ipv4Mask, ipv6Mask int) ([]
 		return []int{ipv6Mask}, nil
 	}
 	return []int{ipv4Mask}, nil
+}
+
+// validateKubeconfig rejects kubeconfigs whose auth info uses credential forms that could
+// exfiltrate the controller's own token.
+// Only inline token, tokenFile, client-cert-data, client-key-data are allowed.
+func validateKubeconfig(path string) error {
+	config, err := clientcmd.LoadFromFile(path)
+	if err != nil {
+		return err
+	}
+	for user, authInfo := range config.AuthInfos {
+		switch {
+		case authInfo.Exec != nil:
+			return fmt.Errorf("user %q: exec credential plugin is not supported", user)
+		case authInfo.ClientCertificate != "":
+			return fmt.Errorf("user %q: clientCertificate file is not supported (use clientCertificateData)", user)
+		case authInfo.ClientKey != "":
+			return fmt.Errorf("user %q: clientKey file is not supported (use clientKeyData)", user)
+		case authInfo.AuthProvider != nil && len(authInfo.AuthProvider.Config) > 0:
+			return fmt.Errorf("user %q: auth-provider is not supported", user)
+		case authInfo.Impersonate != "":
+			return fmt.Errorf("user %q: impersonation is not supported", user)
+		case authInfo.Username != "" && authInfo.Password != "":
+			return fmt.Errorf("user %q: username/password is not supported", user)
+		}
+	}
+	return nil
 }
