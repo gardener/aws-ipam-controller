@@ -9,9 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.8
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.344.3
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.9
-	github.com/gardener/gardener v1.155.0
-	github.com/gardener/gardener/hack/tools v1.155.0
-	github.com/gardener/gardener/pkg/apis v1.155.0
+	github.com/gardener/gardener/hack/tools v1.155.1
 	github.com/go-logr/logr v1.4.4
 	github.com/spf13/pflag v1.1.0
 	go.uber.org/zap v1.28.0
