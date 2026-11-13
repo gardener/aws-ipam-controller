@@ -14,8 +14,8 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.12 h1:lqSi8qvAnKC1vfosIm
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.12/go.mod h1:rqPQE2vqkW9YHx5+Gp55sx1wsTM4xtGQLl+TKMjxxrs=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.11 h1:kOHCwgWFyfrz9GqnJct8knQw7Apyl3xHH+OGnome77s=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.11/go.mod h1:854cZkT2fdkdrzQklD49uzxkZnajXoelpVNgT/yk4J0=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.344.3 h1:gdv8OhKZxtEYkeERVbmIYyGudBtilrdHirKtfalhhuM=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.344.3/go.mod h1:uMJiOkxaT3pV+LAeAvEaXToZ2x3nEnN53HnPdj+pcNo=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.347.0 h1:g+2QZq6gbCn/jhTY7YsXflh+WlbX/zH/2bzKMlXuv3M=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.347.0/go.mod h1:uMJiOkxaT3pV+LAeAvEaXToZ2x3nEnN53HnPdj+pcNo=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.25 h1:rKwkY3Z+fvt2W0msjdNs6uNewPmXzPayQ961oyuWhes=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.25/go.mod h1:dBuAadQKd1F4Q4ZOg8gnFmuSHMRE40Pe3IfFwbtC4lE=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.12 h1:wzAqMZ2O4+ij9HQqIrk+P9PBGacE0wOTuWB7Mo97//I=
@@ -50,10 +50,8 @@ github.com/fsnotify/fsnotify v1.10.1 h1:b0/UzAf9yR5rhf3RPm9gf3ehBPpf0oZKIjtpKrx5
 github.com/fsnotify/fsnotify v1.10.1/go.mod h1:TLheqan6HD6GBK6PrDWyDPBaEV8LspOxvPSjC+bVfgo=
 github.com/fxamacker/cbor/v2 v2.9.6 h1:NHZPxuUjJXQjX9itA785y/5NKSlI4HQ+S7noZsmI7hs=
 github.com/fxamacker/cbor/v2 v2.9.6/go.mod h1:4EaZp6ClVunETjQ4GHmGNzysDK91Lr+r6Yz6tJqzVCw=
-github.com/gardener/gardener v1.155.0/go.mod h1:TUgd/LAr42fD5zlkS89Vlel8dkdkD0Th8ycJbZv1LRE=
 github.com/gardener/gardener/hack/tools v1.155.0 h1:AkaSFSZDU1RyaUUD96of1vSmVct7jntHjjPXihWzMhY=
 github.com/gardener/gardener/hack/tools v1.155.0/go.mod h1:TQX7KtW4JDFujQBLb/Ij2yIfvKGtGVnt7GQjbFmZhpI=
-github.com/gardener/gardener/pkg/apis v1.155.0/go.mod h1:/XcGewTEOKAT+faQPITC2Aw9U4X9Rj3cE/cAu0midso=
 github.com/go-logr/logr v1.4.4 h1:tG4xh9yMsRCAiodLVTxyrkzSZ9+o0L1Kg/+cPVcbP/8=
 github.com/go-logr/logr v1.4.4/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
 github.com/go-logr/zapr v1.3.0 h1:XGdV8XW8zdwFiwOA2Dryh1gj2KRQyOOoNmBy4EplIcQ=
