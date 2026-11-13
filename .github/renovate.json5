@@ -23,6 +23,23 @@
       "automerge": true
     },
     {
+      // Group gardener updates in one PR.
+      groupName: "gardener",
+      matchManagers: ["gomod"],
+      matchPackageNames: [
+        '/^github\\.com/gardener/',
+      ],
+    },
+    {
+      // Auto-merge minor and patch updates for gardener dependencies.
+      matchManagers: ["gomod"],
+      matchPackageNames: [
+        '/^github\\.com/gardener/',
+      ],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true
+    },
+    {
       "matchManagers": ["github-actions"],
       "matchPackagePatterns": [
         "^actions/checkout$",
