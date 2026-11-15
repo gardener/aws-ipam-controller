@@ -32,6 +32,7 @@
     },
     {
       // Auto-merge minor and patch updates for gardener dependencies.
+      groupName: "gardener",
       matchManagers: ["gomod"],
       matchPackageNames: [
         '/^github\\.com/gardener/',
