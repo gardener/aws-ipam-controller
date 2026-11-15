@@ -9,5 +9,7 @@
 package tools
 
 import (
+	_ "github.com/gardener/gardener/cmd/utils" // keep github.com/gardener/gardener in go.mod for GARDENER_HACK_DIR in Makefile
 	_ "github.com/gardener/gardener/hack/tools"
+	_ "github.com/gardener/gardener/pkg/apis"
 )
