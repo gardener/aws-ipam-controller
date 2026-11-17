@@ -19,7 +19,7 @@
     },
     {
       "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["patch", "digest"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
       "automerge": true
     },
     {
